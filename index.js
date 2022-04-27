@@ -2,7 +2,13 @@
 var express = require('express');
 var app = express();
 var server = require('http').createServer(app);
-var io = require('socket.io').listen(server);
+var io = require('socket.io').listen(server,{
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"],
+      credentials: true
+    }
+  });
 var wrtc = require('wrtc');
 var cors = require('cors');
 var roomManager = require('./roomManager.js');
@@ -23,6 +29,22 @@ app.use(express.static(__dirname + '/public'));
 // use cors to allow cross origin resource sharing
 app.use(cors({ origin: '*' }));
 
+app.use(function(req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  
+   // Add this
+   if (req.method === 'OPTIONS') {
+  
+        res.header('Access-Control-Allow-Methods', 'PUT, POST, PATCH, DELETE, OPTIONS');
+        res.header('Access-Control-Max-Age', 120);
+        return res.status(200).json({});
+    }
+  
+    next();
+  
+  });
+
 // /api/genres will return a list of genres
 app.get('/api/genres', function (req, res) {
 // use the LastFM API to get a list of genres
@@ -34,6 +56,7 @@ lastfm.chartTopTags({ limit: 32 }, function (err, data) {
 });
 });
 
+io.set('origins', '*:*');
 // on socket connect, send a message
 io.sockets.on('connection', function (socket) {
 
@@ -75,7 +98,7 @@ io.sockets.on('connection', function (socket) {
         //get the room by id
         var room = RoomManager.getRooms().at(0); 
         //create a new user with the socket and a new peer object
-        var User = new user(socket, new SimplePeer({ initiator: true,trickle: false, wrtc: wrtc }));
+        var User = new user(socket, new SimplePeer({ initiator: true,trickle: true, wrtc: wrtc,config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302'},{urls: 'turn:71.167.186.97:3478',username: 'setu',credential: 'setu'}] } }));
         User.setRoom(room);
         //add the user to the room
         room.addPeer(User);
